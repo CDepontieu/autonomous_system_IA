@@ -1,0 +1,131 @@
+#!/bin/bash
+
+# --------- Clone useful repos ---------
+git clone https://github.com/hiroyuki-s1/PySide2InstallForJetson.git ~/PySide2InstallForJetson
+endTask "PySide2 cloning"
+
+# --------- Install PySide ---------
+newTask "Installing PySide"
+cd ~/PySide2InstallForJetson/dist
+python3.6 -m pip install PySide2-5.9.0a1-5.9.5-cp36-cp36m-linux_aarch64.whl
+cd && rm -rf PySide2InstallForJetson
+endTask "Install PySide2"
+
+# --------- Improve ARMV8 compatibility ---------
+newTask "Improve ARMV8 compatibility"
+echo 'export OPENBLAS_CORETYPE=ARMV8' >> ~/.bashrc
+echo 'export PATH=$PATH:/home/sezaia/.local/bin' >> ~/.bashrc
+sudo apt -y install libfreetype6-dev
+endTask "Set OPENBLAS_CORETYPE=ARMV8"
+
+newTask "Set 8Gb swap size"
+git clone https://github.com/JetsonHacksNano/resizeSwapMemory
+cd resizeSwapMemory && ./setSwapMemorySize.sh -g 8
+cd ~ && rm -rf resizeSwapMemory
+endTask "Set 8Gb swap memory"
+
+
+########################################
+#               OPENCV                 #
+########################################
+newTask "Building OpenCV"
+# --------- Locate CUDA ---------
+newTask "Locate CUDA"
+sudo sh -c "echo '/usr/local/cuda/lib64' >> /etc/ld.so.conf.d/nvidia-tegra.conf"
+sudo ldconfig
+endTask "Found CUDA Location"
+
+# --------- Install dependencies ---------
+newTask "Installing OpenCV Dependencies"
+sudo apt install -y build-essential cmake git unzip pkg-config zlib1g-dev
+sudo apt install -y libjpeg-dev libjpeg8-dev libjpeg-turbo8-dev
+sudo apt install -y libpng-dev libtiff-dev libglew-dev
+sudo apt install -y libavcodec-dev libavformat-dev libswscale-dev
+sudo apt install -y libgtk2.0-dev libgtk-3-dev libcanberra-gtk*
+sudo apt install -y python-dev python-numpy python-pip
+sudo apt install -y python3-dev python3-numpy python3-pip
+sudo apt install -y libxvidcore-dev libx264-dev libgtk-3-dev
+sudo apt install -y libtbb2 libtbb-dev libdc1394-22-dev libxine2-dev
+sudo apt install -y gstreamer1.0-tools libgstreamer-plugins-base1.0-dev
+sudo apt install -y libgstreamer-plugins-good1.0-dev
+sudo apt install -y libv4l-dev v4l-utils v4l2ucp qv4l2
+sudo apt install -y libtesseract-dev libxine2-dev libpostproc-dev
+sudo apt install -y libavresample-dev libvorbis-dev
+sudo apt install -y libfaac-dev libmp3lame-dev libtheora-dev
+sudo apt install -y libopencore-amrnb-dev libopencore-amrwb-dev
+sudo apt install -y libopenblas-dev libatlas-base-dev libblas-dev
+sudo apt install -y liblapack-dev liblapacke-dev libeigen3-dev gfortran
+sudo apt install -y libhdf5-dev libprotobuf-dev protobuf-compiler
+sudo apt install -y libgoogle-glog-dev libgflags-dev
+endTask "OpenCV dependencies install"
+
+# --------- Download sources ---------
+newTask "Downloading OpenCV Sources"
+cd ~
+wget -O opencv.zip https://github.com/opencv/opencv/archive/4.6.0.zip
+wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/4.6.0.zip
+unzip opencv.zip
+unzip opencv_contrib.zip
+mv opencv-4.6.0 opencv
+mv opencv_contrib-4.6.0 opencv_contrib
+rm opencv.zip
+rm opencv_contrib.zip
+endTask "Downloaded OpenCV Sources"
+
+# --------- CMake ---------
+newTask "Starting CMake"
+cd ~/opencv
+mkdir build
+cd build
+cmake -D CMAKE_BUILD_TYPE=RELEASE \
+-D CMAKE_INSTALL_PREFIX=/usr \
+-D OPENCV_EXTRA_MODULES_PATH=~/opencv_contrib/modules \
+-D EIGEN_INCLUDE_PATH=/usr/include/eigen3 \
+-D WITH_OPENCL=OFF \
+-D WITH_CUDA=ON \
+-D CUDA_ARCH_BIN=5.3 \
+-D CUDA_ARCH_PTX="" \
+-D WITH_CUDNN=ON \
+-D WITH_CUBLAS=ON \
+-D ENABLE_FAST_MATH=ON \
+-D CUDA_FAST_MATH=ON \
+-D OPENCV_DNN_CUDA=ON \
+-D ENABLE_NEON=ON \
+-D WITH_QT=OFF \
+-D WITH_OPENMP=ON \
+-D BUILD_TIFF=ON \
+-D WITH_FFMPEG=ON \
+-D WITH_GSTREAMER=ON \
+-D WITH_TBB=ON \
+-D BUILD_TBB=ON \
+-D BUILD_TESTS=OFF \
+-D WITH_EIGEN=ON \
+-D WITH_V4L=ON \
+-D WITH_LIBV4L=ON \
+-D OPENCV_ENABLE_NONFREE=ON \
+-D INSTALL_C_EXAMPLES=OFF \
+-D INSTALL_PYTHON_EXAMPLES=OFF \
+-D PYTHON3_PACKAGES_PATH=/usr/lib/python3/dist-packages \
+-D OPENCV_GENERATE_PKGCONFIG=ON \
+-D BUILD_EXAMPLES=OFF \
+-D BUILD_NEW_PYTHON_SUPPORT=ON \
+-D BUILD_opencv_python3=ON \
+-D HAVE_opencv_python3=ON \
+-D PYTHON_DEFAULT_EXECUTABLE=$(which python3) ..
+endTask "Set CMake configuration variables"
+
+# --------- Make (Go grab a cofee) ~2h ---------
+newTask "Starting CMake (Go grab a cofee) ~2h"
+make -j4
+endTask "OpenCV CMake"
+
+# --------- Cleaning Install ---------
+newTask "Cleaning install"
+sudo rm -r /usr/include/opencv4/opencv2
+sudo make install
+sudo ldconfig
+make clean
+sudo apt update -y
+sudo rm -rf ~/opencv
+sudo rm -rf ~/opencv_contrib
+endTask "Cleaning OpenCV install files"
