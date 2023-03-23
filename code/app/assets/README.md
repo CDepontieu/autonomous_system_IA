@@ -1,1 +1,1 @@
-    code for the app
+assets folder for the code source
